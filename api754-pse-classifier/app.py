@@ -55,9 +55,9 @@ with st.sidebar:
 if step < len(STEPS):
     st.markdown(f"### Step {step + 1} of {len(STEPS)} — {STEPS[step]}")
     st.progress((step + 1) / len(STEPS))
+    st.markdown(f'<div class="step-card"><b>{STEPS[step]}</b><br><span class="small-note">Complete this stage, then use Next to continue. Your answers remain available when you go back.</span></div>', unsafe_allow_html=True)
 else:
     st.markdown("### Assessment complete")
-st.markdown(f'<div class="step-card"><b>{STEPS[step]}</b><br><span class="small-note">Complete this stage, then use Next to continue. Your answers remain available when you go back.</span></div>', unsafe_allow_html=True)
 
 def navigation():
     left, right = st.columns([1, 1])
