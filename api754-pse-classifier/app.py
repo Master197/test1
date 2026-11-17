@@ -1,9 +1,86 @@
 import streamlit as st
 import pandas as pd
 import json
+import io
+from docx import Document
+from docx.shared import Inches, Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from datetime import datetime, timezone
 
 st.set_page_config(page_title="API 754 | PSE Screening", page_icon="🛡️", layout="wide")
+
+def build_word_report(record):
+    doc = Document()
+    section = doc.sections[0]
+    section.top_margin = Inches(0.65)
+    section.bottom_margin = Inches(0.65)
+    title = doc.add_heading("Process Safety Event Screening Report", 0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p = doc.add_paragraph("API RP 754 — Preliminary Tier 1 / Tier 2 decision-support assessment")
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    doc.add_paragraph("CONTROLLED SCREENING OUTPUT — Human review and verification against the licensed applicable API RP 754 edition and approved site procedure are required.")
+    doc.add_heading("1. Screening outcome", level=1)
+    doc.add_heading(record.get("outcome", "Not classified"), level=2)
+    for item in record.get("rationale", []):
+        doc.add_paragraph(item, style="List Bullet")
+    if record.get("unresolved"):
+        doc.add_heading("Items requiring resolution", level=2)
+        for item in record["unresolved"]:
+            doc.add_paragraph(item, style="List Bullet")
+    doc.add_heading("2. Event and assessment details", level=1)
+    details = [
+        ("Event / notification ID", record.get("event_id")),
+        ("Facility / site", record.get("site")),
+        ("Process unit / area", record.get("unit")),
+        ("Event date", record.get("date")),
+        ("Event time", record.get("time")),
+        ("Event type", record.get("event_type")),
+        ("Material / substance", record.get("material")),
+        ("Release reported", record.get("release")),
+        ("Release source / route", record.get("source")),
+        ("Estimated quantity (kg)", record.get("quantity_kg")),
+        ("Estimated duration (minutes)", record.get("duration_min")),
+        ("Assessor", record.get("assessor")),
+        ("Reviewer", record.get("reviewer")),
+    ]
+    table = doc.add_table(rows=0, cols=2)
+    table.style = "Table Grid"
+    for label, value in details:
+        cells = table.add_row().cells
+        cells[0].text = str(label)
+        cells[1].text = "" if value is None else str(value)
+    doc.add_heading("3. Screening answers", level=1)
+    answers = record.get("answers", {})
+    table = doc.add_table(rows=1, cols=2)
+    table.style = "Table Grid"
+    table.rows[0].cells[0].text = "Question / field"
+    table.rows[0].cells[1].text = "Recorded answer"
+    for key, value in answers.items():
+        cells = table.add_row().cells
+        cells[0].text = str(key)
+        cells[1].text = ", ".join(map(str, value)) if isinstance(value, list) else str(value)
+    doc.add_heading("4. Thresholds and confirmation", level=1)
+    doc.add_paragraph(f"Currency: {record.get('threshold_currency', '')}")
+    doc.add_paragraph(f"Entered Tier 1 fire / explosion cost threshold: {record.get('threshold_currency', '')} {record.get('tier1_fire_threshold', '')}")
+    doc.add_paragraph(f"Entered Tier 2 fire / explosion cost threshold: {record.get('threshold_currency', '')} {record.get('tier2_fire_threshold', '')}")
+    doc.add_paragraph(f"Assessor confirmed threshold review: {'Yes' if record.get('threshold_confirmation') else 'No'}")
+    doc.add_paragraph("Entered thresholds are site inputs. Confirm that they match the controlled current standard and approved site procedure; this report does not validate them.")
+    doc.add_heading("5. Evidence and notes", level=1)
+    doc.add_paragraph("Evidence / references:")
+    doc.add_paragraph(record.get("evidence") or "Not provided")
+    doc.add_paragraph("Additional notes / assumptions:")
+    doc.add_paragraph(record.get("notes") or "Not provided")
+    doc.add_heading("6. Methodology, limitations and approval", level=1)
+    doc.add_paragraph("This is a preliminary screening record only. It does not replace incident investigation, competent process safety review, or the site's formal reporting and approval process.")
+    doc.add_paragraph("Chemical thresholds, mixture calculations, definitions, special release-route rules and cost thresholds must be checked against the licensed applicable edition of API RP 754 and the approved company procedure.")
+    doc.add_paragraph("No API certification or compliance determination is represented by this application.")
+    doc.add_paragraph(f"Report generated (UTC): {record.get('generated_utc', '')}")
+    doc.add_paragraph(f"Reviewer: {record.get('reviewer') or 'Not specified'}")
+    output = io.BytesIO()
+    doc.save(output)
+    output.seek(0)
+    return output.getvalue()
+
 
 st.markdown("""
 <style>
@@ -226,6 +303,26 @@ elif step == 4:
             "tier1_fire_threshold": st.session_state.get("tier1_fire", 0.0),
             "tier2_fire_threshold": st.session_state.get("tier2_fire", 0.0),
             "threshold_confirmation": st.session_state.get("confirmed", False),
+            "tier1_fire_threshold": st.session_state.get("tier1_fire", 0.0),
+            "tier2_fire_threshold": st.session_state.get("tier2_fire", 0.0),
+            "answers": {
+                "Entry condition — unplanned / uncontrolled process release": st.session_state.get("release", "Unknown"),
+                "Release source / route": st.session_state.get("release_route", ""),
+                "Estimated quantity (kg)": st.session_state.get("quantity", 0.0),
+                "Estimated duration (minutes)": st.session_state.get("duration", 0.0),
+                "Employee / contractor fatality or days-away-from-work injury": st.session_state.get("employee_dafw", "Not answered"),
+                "Third-party hospital admission or fatality": st.session_state.get("third_party_hosp", "Not answered"),
+                "Community evacuation / shelter-in-place": st.session_state.get("community_action", "Not answered"),
+                "Direct fire / explosion damage cost": st.session_state.get("fire_cost", 0.0),
+                "PRD / SIS / emergency depressuring consequence": st.session_state.get("prd_consequence", "Not answered"),
+                "Upset emission consequence": st.session_state.get("upset_consequence", "Not answered"),
+                "Qualifying consequences": st.session_state.get("qualifying", []),
+                "Tier 1 quantity threshold status": st.session_state.get("t1_qty", "Not answered"),
+                "Recordable work-related injury": st.session_state.get("recordable", "Not answered"),
+                "Tier 2 quantity threshold status": st.session_state.get("t2_qty", "Not answered"),
+                "PRD / SIS Tier 2 criteria": st.session_state.get("t2_prd", "Not answered"),
+                "Upset emission Tier 2 criteria": st.session_state.get("t2_upset", "Not answered"),
+            },
             "generated_utc": datetime.now(timezone.utc).isoformat()
         }
         st.session_state["classification"] = record
@@ -252,6 +349,11 @@ if st.session_state.step == 5 and "classification" in st.session_state:
         "Rationale": "; ".join(r["rationale"]), "Unresolved": "; ".join(r["unresolved"]),
         "Evidence": r["evidence"]
     }]).to_csv(index=False).encode("utf-8-sig")
+    report_docx = build_word_report(r)
+    st.download_button("Download full assessment report (Word)", report_docx,
+                       file_name=f"PSE_{r['event_id'] or 'assessment'}_report.docx",
+                       mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                       type="primary")
     st.download_button("Download classification record (CSV)", csv,
                        file_name=f"PSE_{r['event_id'] or 'assessment'}.csv", mime="text/csv")
     st.download_button("Download full assessment (JSON)",
