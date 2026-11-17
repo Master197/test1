@@ -52,8 +52,11 @@ with st.sidebar:
         st.rerun()
     st.caption("Build 0.2 • Guided decision support")
 
-st.markdown(f"### Step {step + 1} of {len(STEPS)} — {STEPS[step]}")
-st.progress((step + 1) / len(STEPS))
+if step < len(STEPS):
+    st.markdown(f"### Step {step + 1} of {len(STEPS)} — {STEPS[step]}")
+    st.progress((step + 1) / len(STEPS))
+else:
+    st.markdown("### Assessment complete")
 st.markdown(f'<div class="step-card"><b>{STEPS[step]}</b><br><span class="small-note">Complete this stage, then use Next to continue. Your answers remain available when you go back.</span></div>', unsafe_allow_html=True)
 
 def navigation():
@@ -141,6 +144,9 @@ elif step == 3:
 
 elif step == 4:
     st.subheader("Evidence, assumptions and review")
+    if st.button("← Back to Tier 2 screening", use_container_width=True):
+        st.session_state.step = 3
+        st.rerun()
     st.text_area("Evidence / references (SAP notification, operator log, historian trend, permit, medical report, cost estimate, release calculation)", height=120, key="evidence")
     st.text_area("Additional notes / assumptions", height=90, key="notes")
     st.text_input("Reviewer / process safety focal point", key="reviewer")
