@@ -3,7 +3,7 @@ import pandas as pd
 import json
 import io
 from docx import Document
-from docx.shared import Inches, Pt
+from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from datetime import datetime, timezone
 
@@ -303,8 +303,6 @@ elif step == 4:
             "tier1_fire_threshold": st.session_state.get("tier1_fire", 0.0),
             "tier2_fire_threshold": st.session_state.get("tier2_fire", 0.0),
             "threshold_confirmation": st.session_state.get("confirmed", False),
-            "tier1_fire_threshold": st.session_state.get("tier1_fire", 0.0),
-            "tier2_fire_threshold": st.session_state.get("tier2_fire", 0.0),
             "answers": {
                 "Entry condition — unplanned / uncontrolled process release": st.session_state.get("release", "Unknown"),
                 "Release source / route": st.session_state.get("release_route", ""),
